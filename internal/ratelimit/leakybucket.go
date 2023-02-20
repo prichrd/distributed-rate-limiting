@@ -34,9 +34,9 @@ func NewLeakyBucket(bucketConfig *LeakyBucketConfig, rdb *redis.Client) *LeakyBu
 	}
 }
 
-// Check checks the length of the request queue. If the number of elements is bigger
-// than the capacity of the leaky bucket, we drop the request by returning a
-// `ratelimit.ErrRateLimited` error.
+// Check updates the state of the rate limiter and checks if the request is rate
+// limited or not. In cases where the request is rate limited, the function will
+// return a `ratelimit.ErrRateLimited` error.
 func (r *LeakyBucket) Check(ctx context.Context, key string, reqID string, at time.Time) error {
 	rc := r.rdb.LLen(ctx, key).Val()
 	if rc >= r.bucketConfig.Capacity {
