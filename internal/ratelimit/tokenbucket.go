@@ -13,7 +13,7 @@ import (
 // is simple, a bucket contains tokens and every request costs a token. On a
 // regular cadence, the tokens get refilled. If a bucket runs out of token,
 // requests are rate-limited. If we want to rate-limit by user ID, we need one
-// token per user ID.
+// bucket per user ID.
 //
 // This approach is a very simple one to implement and is relatively efficient
 // on memory. The only downside to it is that it doesn't prevent race conditions.
@@ -22,18 +22,18 @@ import (
 // accepted one. To make transactions atomic, we could use redis locks, but it
 // would impact performance.
 type TokenBucket struct {
-	bucketConfig *BucketConfig
+	bucketConfig *TokenBucketConfig
 	rdb          *redis.Client
 }
 
-// BucketConfig represents the configuration of a token bucket.
-type BucketConfig struct {
+// TokenBucketConfig represents the configuration of a token bucket.
+type TokenBucketConfig struct {
 	Capacity  int64
 	ResetRate time.Duration
 }
 
 // NewTokenBucket returns a configured instance of TokenBucket.
-func NewTokenBucket(bucketConfig *BucketConfig, rdb *redis.Client) *TokenBucket {
+func NewTokenBucket(bucketConfig *TokenBucketConfig, rdb *redis.Client) *TokenBucket {
 	return &TokenBucket{
 		bucketConfig: bucketConfig,
 		rdb:          rdb,
@@ -43,7 +43,7 @@ func NewTokenBucket(bucketConfig *BucketConfig, rdb *redis.Client) *TokenBucket 
 // Check updates the state of the rate limiter and checks if the request is rate
 // limited or not. In cases where the request is rate limited, the function will
 // return a `ratelimit.ErrRateLimited` error.
-func (r *TokenBucket) Check(ctx context.Context, key string, at time.Time) error {
+func (r *TokenBucket) Check(ctx context.Context, key string, reqID string, at time.Time) error {
 	v, _ := r.rdb.Get(ctx, fmt.Sprintf("%s_last_reset", key)).Result()
 	lastResetSec, _ := strconv.ParseInt(v, 10, 64)
 	lastResetTs := time.Unix(lastResetSec, 0)
